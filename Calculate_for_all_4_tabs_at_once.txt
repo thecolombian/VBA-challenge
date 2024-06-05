@@ -1,0 +1,119 @@
+Sub AnalyzeQuarterlyStockData()
+    Dim ws As Worksheet
+    Dim summaryWs As Worksheet
+    Dim tickerCollection As New Collection
+    Dim lastRow As Long
+    Dim i As Long, j As Long
+    Dim ticker As String
+    Dim openPrice As Double, closePrice As Double
+    Dim totalVolume As Double
+    Dim quarterlyChange As Double, percentageChange As Double
+    Dim uniqueTickers() As String
+    Dim tickerCount As Long
+    Dim item As Variant
+
+    ' Set the summary worksheet
+    Set summaryWs = ThisWorkbook.Sheets("Q1")
+
+    ' Loop through each quarterly worksheet to collect unique tickers
+    On Error Resume Next
+    For Each ws In ThisWorkbook.Worksheets
+        If ws.Name Like "Q*" Then
+            lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
+            For i = 2 To lastRow
+                ticker = ws.Cells(i, 1).Value
+                tickerCollection.Add ticker, CStr(ticker)
+            Next i
+        End If
+    Next ws
+    On Error GoTo 0
+
+    ' Convert the collection to an array for processing
+    tickerCount = tickerCollection.Count
+    ReDim uniqueTickers(1 To tickerCount)
+    j = 1
+    For Each item In tickerCollection
+        uniqueTickers(j) = item
+        j = j + 1
+    Next item
+
+    ' Sort the array alphabetically
+    Call QuickSort(uniqueTickers, LBound(uniqueTickers), UBound(uniqueTickers))
+
+    ' Insert the label for the tickers column
+    summaryWs.Cells(1, 9).Value = "Ticker"
+    summaryWs.Cells(1, 10).Value = "Quarterly Change"
+    summaryWs.Cells(1, 11).Value = "Percentage Change"
+    summaryWs.Cells(1, 12).Value = "Total Volume"
+
+    ' Output the sorted tickers to the summary sheet
+    For i = 1 To tickerCount
+        summaryWs.Cells(i + 1, 9).Value = uniqueTickers(i)
+    Next i
+
+    ' Loop through each ticker to calculate metrics
+    For i = 2 To tickerCount + 1
+        ticker = summaryWs.Cells(i, 9).Value
+        openPrice = 0
+        closePrice = 0
+        totalVolume = 0
+
+        ' Loop through each quarterly worksheet
+        For Each ws In ThisWorkbook.Worksheets
+            If ws.Name Like "Q*" Then
+                lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
+                For j = 2 To lastRow
+                    If ws.Cells(j, 1).Value = ticker Then
+                        If openPrice = 0 Then
+                            openPrice = ws.Cells(j, 3).Value
+                        End If
+                        closePrice = ws.Cells(j, 6).Value
+                        totalVolume = totalVolume + ws.Cells(j, 7).Value
+                    End If
+                Next j
+            End If
+        Next ws
+
+        ' Calculate quarterly change and percentage change
+        quarterlyChange = closePrice - openPrice
+        If openPrice <> 0 Then
+            percentageChange = (quarterlyChange / openPrice) * 100
+        Else
+            percentageChange = 0
+        End If
+
+        ' Output results to summary sheet
+        summaryWs.Cells(i, 10).Value = quarterlyChange
+        summaryWs.Cells(i, 11).Value = percentageChange
+        summaryWs.Cells(i, 12).Value = totalVolume
+    Next i
+End Sub
+
+' QuickSort algorithm for sorting the tickers array
+Sub QuickSort(arr As Variant, first As Long, last As Long)
+    Dim low As Long, high As Long
+    Dim mid As Variant, temp As Variant
+
+    low = first
+    high = last
+    mid = arr((first + last) \ 2)
+
+    Do While low <= high
+        Do While arr(low) < mid
+            low = low + 1
+        Loop
+        Do While arr(high) > mid
+            high = high - 1
+        Loop
+        If low <= high Then
+            temp = arr(low)
+            arr(low) = arr(high)
+            arr(high) = temp
+            low = low + 1
+            high = high - 1
+        End If
+    Loop
+
+    If first < high Then QuickSort arr, first, high
+    If low < last Then QuickSort arr, low, last
+End Sub
